@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth, signInWithGoogle, logOut } from '../firebase';
 import { Music, CheckCircle2, Clock } from 'lucide-react';
 
 interface SongRequest {
@@ -59,7 +59,7 @@ export function SongRequests() {
   };
 
   return (
-    <div className="flex flex-col h-[500px] bg-zinc-900 rounded-2xl shadow-xl overflow-hidden border border-zinc-800">
+    <div className="flex flex-col h-[400px] sm:h-[500px] lg:h-[600px] bg-zinc-900 rounded-2xl shadow-xl overflow-hidden border border-zinc-800">
       <div className="bg-zinc-800 p-4 border-b border-zinc-700">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           <Music className="w-5 h-5 text-orange-500" />
@@ -69,45 +69,57 @@ export function SongRequests() {
       
       <div className="p-4 border-b border-zinc-800">
         {user ? (
-          <form onSubmit={submitRequest} className="space-y-3">
-            <div>
-              <input
-                type="text"
-                value={songName}
-                onChange={(e) => setSongName(e.target.value)}
-                placeholder="Nome da música"
-                className="w-full bg-zinc-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700 text-sm"
-                maxLength={100}
-                required
-              />
+          <div className="flex flex-col gap-3">
+            <form onSubmit={submitRequest} className="space-y-3">
+              <div>
+                <input
+                  type="text"
+                  value={songName}
+                  onChange={(e) => setSongName(e.target.value)}
+                  placeholder="Nome da música"
+                  className="w-full bg-zinc-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700 text-sm"
+                  maxLength={100}
+                  required
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={artistName}
+                  onChange={(e) => setArtistName(e.target.value)}
+                  placeholder="Nome do artista/banda"
+                  className="w-full bg-zinc-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700 text-sm"
+                  maxLength={100}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!songName.trim() || !artistName.trim() || isSubmitting}
+                className="w-full bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+              >
+                {isSubmitting ? 'Enviando...' : 'Enviar Pedido'}
+              </button>
+            </form>
+            <div className="flex justify-between items-center px-1 mt-1">
+              <span className="text-xs text-zinc-500">Logado como {user.displayName}</span>
+              <button onClick={logOut} className="text-xs text-zinc-400 hover:text-white transition-colors">Sair</button>
             </div>
-            <div>
-              <input
-                type="text"
-                value={artistName}
-                onChange={(e) => setArtistName(e.target.value)}
-                placeholder="Nome do artista/banda"
-                className="w-full bg-zinc-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700 text-sm"
-                maxLength={100}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!songName.trim() || !artistName.trim() || isSubmitting}
-              className="w-full bg-orange-500 text-white py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-            >
-              {isSubmitting ? 'Enviando...' : 'Enviar Pedido'}
-            </button>
-          </form>
+          </div>
         ) : (
-          <div className="text-center text-sm text-zinc-400 py-4 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
-            Faça login para pedir músicas
+          <div className="flex flex-col items-center justify-center gap-3 py-4 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+            <span className="text-sm text-zinc-400">Faça login para pedir músicas</span>
+            <button 
+              onClick={signInWithGoogle}
+              className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Entrar com Google
+            </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
         <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Últimos Pedidos</h4>
         <div className="space-y-3">
           {requests.map((req) => (

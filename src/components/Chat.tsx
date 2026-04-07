@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth, signInWithGoogle, logOut } from '../firebase';
 import { format } from 'date-fns';
 import { Send } from 'lucide-react';
 
@@ -57,12 +57,12 @@ export function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[500px] bg-zinc-900 rounded-2xl shadow-xl overflow-hidden border border-zinc-800">
+    <div className="flex flex-col h-[400px] sm:h-[500px] lg:h-[600px] bg-zinc-900 rounded-2xl shadow-xl overflow-hidden border border-zinc-800">
       <div className="bg-zinc-800 p-4 border-b border-zinc-700">
         <h3 className="text-lg font-semibold text-white">Chat ao Vivo</h3>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.userId === user?.uid ? 'items-end' : 'items-start'}`}>
             <div className="flex items-baseline gap-2 mb-1">
@@ -81,26 +81,38 @@ export function Chat() {
 
       <div className="p-4 bg-zinc-800 border-t border-zinc-700">
         {user ? (
-          <form onSubmit={sendMessage} className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Digite sua mensagem..."
-              className="flex-1 bg-zinc-900 text-white rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700"
-              maxLength={500}
-            />
-            <button
-              type="submit"
-              disabled={!newMessage.trim()}
-              className="bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
+          <div className="flex flex-col gap-3">
+            <form onSubmit={sendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                className="flex-1 bg-zinc-900 text-white rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 border border-zinc-700"
+                maxLength={500}
+              />
+              <button
+                type="submit"
+                disabled={!newMessage.trim()}
+                className="bg-orange-500 text-white p-2 rounded-full hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </form>
+            <div className="flex justify-between items-center px-2">
+              <span className="text-xs text-zinc-500">Logado como {user.displayName}</span>
+              <button onClick={logOut} className="text-xs text-zinc-400 hover:text-white transition-colors">Sair</button>
+            </div>
+          </div>
         ) : (
-          <div className="text-center text-sm text-zinc-400 py-2">
-            Faça login para participar do chat
+          <div className="flex flex-col items-center justify-center gap-3 py-2">
+            <span className="text-sm text-zinc-400">Faça login para participar do chat</span>
+            <button 
+              onClick={signInWithGoogle}
+              className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+              Entrar com Google
+            </button>
           </div>
         )}
       </div>

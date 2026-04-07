@@ -1,15 +1,56 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Peer } from 'peerjs';
 
 export function RadioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [status, setStatus] = useState('Conectando...');
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Placeholder stream URL. The user should replace this with their actual Icecast/Shoutcast stream URL.
-  // We use a public test stream here.
-  const streamUrl = "https://stream.zeno.fm/f3wvbbqmdg8uv";
+  useEffect(() => {
+    // Conecta ao servidor gratuito do PeerJS
+    const peer = new Peer();
+
+    peer.on('open', () => {
+      setStatus('Sintonizando...');
+      
+      // Aqui você coloca o MESMO ID que está no seu Studio!
+      const radioId = 'minha-radio-ao-vivo'; 
+      
+      // "Liga" para o Studio para receber o áudio
+      // O TypeScript pode reclamar do null, então forçamos o tipo
+      const call = peer.call(radioId, null as unknown as MediaStream);
+
+      call.on('stream', (remoteStream) => {
+        if (audioRef.current) {
+          audioRef.current.srcObject = remoteStream;
+          audioRef.current.play().then(() => {
+            setIsPlaying(true);
+          }).catch(e => {
+            console.log("Aguardando interação do usuário para tocar");
+            setIsPlaying(false);
+          });
+          setStatus('Ao Vivo 🔴');
+        }
+      });
+
+      call.on('close', () => {
+        setStatus('Transmissão encerrada.');
+        setIsPlaying(false);
+      });
+      
+      call.on('error', () => {
+        setStatus('Rádio offline.');
+        setIsPlaying(false);
+      });
+    });
+
+    return () => {
+      peer.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -22,7 +63,7 @@ export function RadioPlayer() {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play().catch(e => console.error("Error playing audio:", e));
+        audioRef.current.play().catch(e => console.error("Error playing audio:", e?.message || "Unknown error"));
       }
       setIsPlaying(!isPlaying);
     }
@@ -34,9 +75,9 @@ export function RadioPlayer() {
 
   return (
     <div className="bg-zinc-900 text-white rounded-2xl p-6 shadow-2xl flex flex-col items-center w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-2 text-orange-500">Rádio Ao Vivo</h2>
+      <h2 className="text-2xl font-bold mb-2 text-orange-500">Rádio Lima Play</h2>
       <p className="text-zinc-400 mb-8 text-sm text-center">
-        Conectado a: <a href="https://minha-r-dio.vercel.app/" target="_blank" rel="noreferrer" className="text-orange-400 hover:underline">minha-r-dio.vercel.app</a>
+        Status: <strong className={status === 'Ao Vivo 🔴' ? 'text-green-400' : 'text-orange-400'}>{status}</strong>
       </p>
 
       <div className="relative w-48 h-48 mb-8 flex items-center justify-center">
@@ -44,7 +85,8 @@ export function RadioPlayer() {
         <div className="absolute inset-2 rounded-full bg-zinc-800 flex items-center justify-center shadow-inner">
           <button
             onClick={togglePlay}
-            className="w-24 h-24 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/50"
+            disabled={status !== 'Ao Vivo 🔴'}
+            className="w-24 h-24 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPlaying ? (
               <Pause className="w-10 h-10 text-white fill-current" />
@@ -73,11 +115,14 @@ export function RadioPlayer() {
         />
       </div>
 
-      <audio ref={audioRef} src={streamUrl} preload="none" />
-      
-      <div className="mt-6 text-xs text-zinc-500 text-center">
-        * Nota: Substitua a URL do stream no código pelo link de áudio real da sua web rádio.
-      </div>
+      <audio 
+        ref={audioRef} 
+        preload="none"
+        onError={() => {
+          console.error("Audio playback error occurred.");
+          setIsPlaying(false);
+        }}
+      />
     </div>
   );
 }
