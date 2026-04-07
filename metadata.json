@@ -1,0 +1,5 @@
+{
+  "name": "Web Rádio Player",
+  "description": "Um reprodutor para web rádio com chat ao vivo e pedidos de músicas.",
+  "requestFramePermissions": []
+}

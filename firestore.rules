@@ -1,0 +1,137 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (required)
+    //   - photoURL: string (optional)
+    //   - email: string (optional)
+    //   - role: string (required, 'listener' or 'admin')
+    //
+    // Collection: messages
+    // Document ID: auto-generated
+    // Fields:
+    //   - text: string (required, max 500 chars)
+    //   - userId: string (required)
+    //   - userName: string (required)
+    //   - userPhoto: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: songRequests
+    // Document ID: auto-generated
+    // Fields:
+    //   - songName: string (required, max 100 chars)
+    //   - artistName: string (required, max 100 chars)
+    //   - userId: string (required)
+    //   - userName: string (required)
+    //   - status: string (required, 'pending' or 'played')
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "jallanluiz@gmail.com" && request.auth.token.email_verified == true)); // Default admin
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser() {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'photoURL', 'email', 'role']) &&
+             hasRequiredFields(['uid', 'displayName', 'role']) &&
+             request.resource.data.uid == request.auth.uid &&
+             validStringLength('displayName', 1, 100) &&
+             isValidOptionalString('photoURL', 0, 500) &&
+             isValidOptionalString('email', 0, 200) &&
+             request.resource.data.role in ['listener', 'admin'];
+    }
+
+    function isValidMessage() {
+      return hasOnlyAllowedFields(['text', 'userId', 'userName', 'userPhoto', 'createdAt']) &&
+             hasRequiredFields(['text', 'userId', 'userName', 'createdAt']) &&
+             validStringLength('text', 1, 500) &&
+             request.resource.data.userId == request.auth.uid &&
+             validStringLength('userName', 1, 100) &&
+             isValidOptionalString('userPhoto', 0, 500) &&
+             request.resource.data.createdAt is timestamp;
+    }
+
+    function isValidSongRequest() {
+      return hasOnlyAllowedFields(['songName', 'artistName', 'userId', 'userName', 'status', 'createdAt']) &&
+             hasRequiredFields(['songName', 'artistName', 'userId', 'userName', 'status', 'createdAt']) &&
+             validStringLength('songName', 1, 100) &&
+             validStringLength('artistName', 1, 100) &&
+             request.resource.data.userId == request.auth.uid &&
+             validStringLength('userName', 1, 100) &&
+             request.resource.data.status in ['pending', 'played'] &&
+             request.resource.data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser() && (request.resource.data.role == 'listener' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser() && (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if true; // Public chat for listeners
+      allow create: if isAuthenticated() && isValidMessage();
+      allow update: if isAdmin() && isValidMessage() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    match /songRequests/{requestId} {
+      allow read: if true; // Public list of requests
+      allow create: if isAuthenticated() && isValidSongRequest() && request.resource.data.status == 'pending';
+      allow update: if isAdmin() && isValidSongRequest() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+  }
+}
