@@ -19,32 +19,42 @@ export function RadioPlayer() {
       // Aqui você coloca o MESMO ID que está no seu Studio!
       const radioId = 'minha-radio-ao-vivo'; 
       
-      // "Liga" para o Studio para receber o áudio
-      // O TypeScript pode reclamar do null, então forçamos o tipo
-      const call = peer.call(radioId, null as unknown as MediaStream);
-
-      call.on('stream', (remoteStream) => {
-        if (audioRef.current) {
-          audioRef.current.srcObject = remoteStream;
-          audioRef.current.play().then(() => {
-            setIsPlaying(true);
-          }).catch(e => {
-            console.log("Aguardando interação do usuário para tocar");
-            setIsPlaying(false);
-          });
-          setStatus('Ao Vivo 🔴');
-        }
-      });
-
-      call.on('close', () => {
-        setStatus('Transmissão encerrada.');
-        setIsPlaying(false);
-      });
+      // Cria um stream de áudio vazio (dummy) para satisfazer o PeerJS
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContextClass();
+      const dest = ctx.createMediaStreamDestination();
+      const dummyStream = dest.stream;
       
-      call.on('error', () => {
+      // "Liga" para o Studio para receber o áudio
+      const call = peer.call(radioId, dummyStream);
+
+      if (call) {
+        call.on('stream', (remoteStream) => {
+          if (audioRef.current) {
+            audioRef.current.srcObject = remoteStream;
+            audioRef.current.play().then(() => {
+              setIsPlaying(true);
+            }).catch(e => {
+              console.log("Aguardando interação do usuário para tocar");
+              setIsPlaying(false);
+            });
+            setStatus('Ao Vivo 🔴');
+          }
+        });
+
+        call.on('close', () => {
+          setStatus('Transmissão encerrada.');
+          setIsPlaying(false);
+        });
+        
+        call.on('error', () => {
+          setStatus('Rádio offline.');
+          setIsPlaying(false);
+        });
+      } else {
         setStatus('Rádio offline.');
         setIsPlaying(false);
-      });
+      }
     });
 
     return () => {
